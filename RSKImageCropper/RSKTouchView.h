@@ -28,4 +28,6 @@
 
 @property (weak, nonatomic) UIView *receiver;
 
+@property (nonatomic, strong) UIImageView      *imageView;
+
 @end
