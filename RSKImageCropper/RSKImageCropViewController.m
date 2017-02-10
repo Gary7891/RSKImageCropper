@@ -149,6 +149,10 @@ static const CGFloat kLayoutImageScrollViewAnimationDuration = 0.25;
     [self.view addSubview:self.cancelButton];
     [self.view addSubview:self.chooseButton];
     
+    if (self.maskImagePath) {
+        self.overlayView.imageView.image = [UIImage imageNamed:self.maskImagePath];
+    }
+    
     [self.view addGestureRecognizer:self.doubleTapGestureRecognizer];
     [self.view addGestureRecognizer:self.rotationGestureRecognizer];
 }
@@ -300,6 +304,7 @@ static const CGFloat kLayoutImageScrollViewAnimationDuration = 0.25;
 {
     if (!_overlayView) {
         _overlayView = [[RSKTouchView alloc] init];
+        [_overlayView addSubview:self.overlayView.imageView];
         _overlayView.receiver = self.imageScrollView;
         [_overlayView.layer addSublayer:self.maskLayer];
     }
@@ -755,6 +760,59 @@ static const CGFloat kLayoutImageScrollViewAnimationDuration = 0.25;
                 // Will be changed to `CGRectNull` in version `2.0.0`.
                 frame = self.maskRect;
             }
+            
+            // Step 1: Rotate the left edge of the initial rect of the image scroll view clockwise around the center by `rotationAngle`.
+            CGRect initialRect = self.maskRect;
+            CGFloat rotationAngle = self.rotationAngle;
+            
+            CGPoint leftTopPoint = CGPointMake(initialRect.origin.x, initialRect.origin.y);
+            CGPoint leftBottomPoint = CGPointMake(initialRect.origin.x, initialRect.origin.y + initialRect.size.height);
+            RSKLineSegment leftLineSegment = RSKLineSegmentMake(leftTopPoint, leftBottomPoint);
+            
+            CGPoint pivot = RSKRectCenterPoint(initialRect);
+            
+            CGFloat alpha = fabs(rotationAngle);
+            RSKLineSegment rotatedLeftLineSegment = RSKLineSegmentRotateAroundPoint(leftLineSegment, pivot, alpha);
+            
+            // Step 2: Find the points of intersection of the rotated edge with the initial rect.
+            NSArray *points = [self intersectionPointsOfLineSegment:rotatedLeftLineSegment withRect:initialRect];
+            
+            // Step 3: If the number of intersection points more than one
+            // then the bounds of the rotated image scroll view does not completely fill the mask area.
+            // Therefore, we need to update the frame of the image scroll view.
+            // Otherwise, we can use the initial rect.
+            if (points.count > 1) {
+                // We have a right triangle.
+                
+                // Step 4: Calculate the altitude of the right triangle.
+                if ((alpha > M_PI_2) && (alpha < M_PI)) {
+                    alpha = alpha - M_PI_2;
+                } else if ((alpha > (M_PI + M_PI_2)) && (alpha < (M_PI + M_PI))) {
+                    alpha = alpha - (M_PI + M_PI_2);
+                }
+                CGFloat sinAlpha = sin(alpha);
+                CGFloat cosAlpha = cos(alpha);
+                CGFloat hypotenuse = RSKPointDistance([points[0] CGPointValue], [points[1] CGPointValue]);
+                CGFloat altitude = hypotenuse * sinAlpha * cosAlpha;
+                
+                // Step 5: Calculate the target width.
+                CGFloat initialWidth = CGRectGetWidth(initialRect);
+                CGFloat targetWidth = initialWidth + altitude * 2;
+                
+                // Step 6: Calculate the target frame.
+                CGFloat scale = targetWidth / initialWidth;
+                CGPoint center = RSKRectCenterPoint(initialRect);
+                frame = RSKRectScaleAroundPoint(initialRect, center, scale, scale);
+                
+                // Step 7: Avoid floats.
+                frame.origin.x = round(CGRectGetMinX(frame));
+                frame.origin.y = round(CGRectGetMinY(frame));
+                frame = CGRectIntegral(frame);
+            } else {
+                // Step 4: Use the initial rect.
+                frame = initialRect;
+            }
+            
             break;
         }
     }
@@ -769,6 +827,7 @@ static const CGFloat kLayoutImageScrollViewAnimationDuration = 0.25;
 {
     CGRect frame = CGRectMake(0, 0, CGRectGetWidth(self.view.bounds) * 2, CGRectGetHeight(self.view.bounds) * 2);
     self.overlayView.frame = frame;
+    self.overlayView.imageView.frame = self.maskRect;
 }
 
 - (void)updateMaskRect
