@@ -276,6 +276,8 @@ typedef NS_ENUM(NSUInteger, RSKImageCropMode) {
  */
 @property (assign, nonatomic) CGFloat landscapeCropViewTrailingAndChooseButtonTrailingHorizontalSpace;
 
+@property (strong, nonatomic) NSString *maskImagePath;
+
 @end
 
 /**
