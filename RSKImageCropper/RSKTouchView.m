@@ -34,4 +34,13 @@
 	return nil;
 }
 
+- (UIImageView*)imageView {
+    if (!_imageView) {
+        _imageView = [[UIImageView alloc]init];
+        _imageView.backgroundColor = [UIColor clearColor];
+        _imageView.contentMode = UIViewContentModeScaleAspectFit;
+    }
+    return _imageView;
+}
+
 @end
